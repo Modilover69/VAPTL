@@ -1,0 +1,97 @@
+from flask import Flask, jsonify, request,send_from_directory, render_template,send_file,redirect
+import pickle
+import base64
+
+app = Flask(__name__)
+
+# Dummy user data
+users = [
+    {"id": 1, "username": "user1", "email": "user1@example.com"},
+    {"id": 2, "username": "user2", "email": "user2@example.com"},
+    {"id": 3, "username": "user3", "email": "user3@example.com"},
+    {"id": 4, "username": "aether", "email": "aether@example.com"},
+    {"id": 34, "username": "mangubai", "email": "mangubai@example.com"},
+    {"id": 88, "username": "saty", "email": "saty@example.com"},
+    {"id": 69, "username": "admin", "email": "admin@example.com"}
+]
+
+@app.route('/',methods=['GET'])
+def first():
+    return render_template('index.html')
+
+# Route to get user by id
+@app.route('/api/v3/users', methods=['GET'])
+def get_user_by_id():
+    user_id = request.args.get('id')
+    if user_id:
+        user = next((user for user in users if user['id'] == int(user_id)), None)
+        if user:
+            return jsonify(user)
+        else:
+            return jsonify({"error": "User not found"}), 404
+    else:
+        return jsonify({"error": "Missing user ID parameter"}), 400
+    
+@app.route('/api/v3/user/<string:name>', methods=['GET'])
+def get_user_by_name(name):
+    user = next((user for user in users if user['username'] == name), None)
+    if user:
+        return jsonify(user)
+    else:
+        return jsonify({"error": "User not found"}), 404
+
+@app.route('/api/v1/swagger.yaml')
+def send_swagger_yaml():
+    return send_from_directory('api/v1/', 'swagger.yaml')
+
+@app.route('/robots.txt')
+def robots():
+    return send_from_directory('', 'robots.txt')
+
+@app.route('/templates/index.html')
+def index():
+    return render_template('index.html')
+
+@app.route('/openapi.json/')
+def openapi():
+    return send_file('openapi.json', mimetype='application/json')
+
+@app.route('/api/')
+def redirect_to_version():
+    return redirect('/api/version', code=301)
+
+@app.route('/api/version/')
+def api_version():
+    return 'API Version v1.0'
+
+# Route to add a new user
+@app.route('/api/v3/users/', methods=['POST'])
+def add_user():
+    data = request.json
+    if not data or 'username' not in data or 'email' not in data:
+        return jsonify({"error": "Invalid data"}), 400
+    new_user = {
+        'id': len(users) + 1,
+        'username': data['username'],
+        'email': data['email']
+    }
+    users.append(new_user)
+    return jsonify(new_user), 201
+
+# for insecure deserialization
+@app.route('/deserialize/', methods=['GET','POST'])
+def deserialize_data():
+    try:
+        data = request.form.get('data')
+        decoded_data = base64.b64decode(data)
+        deserialized_data = pickle.loads(decoded_data)
+        # Assume the deserialized data is used for authentication or authorization
+        if deserialized_data['username'] == 'admin' and deserialized_data['password'] == 'admin':
+            return 'Authenticated as admin'
+        else:
+            return 'Authentication failed'
+    except Exception as e:
+        return f'Error: {str(e)}'
+    
+if __name__ == '__main__':
+    app.run(debug=True,port=8080)
